@@ -1,52 +1,39 @@
 # importing our libraries
 
+import random
+import time
+from datetime import date, timedelta
+import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-import re
-import pandas as pd
-import time
-import random
-import datetime
 
 BOROUGHS = {
-    "City of London": "5E61224",
-    "Barking and Dagenham": "5E61400",
-    "Barnet": "5E93929",
-    "Bexley": "5E93932",
-    "Brent": "5E93935",
-    "Bromley": "5E93938",
-    "Camden": "5E93941",
-    "Croydon": "5E93944",
-    "Ealing": "5E93947",
-    "Enfield": "5E93950",
-    "Greenwich": "5E61226",
-    "Hackney": "5E93953",
-    "Hammersmith and Fulham": "5E61407",
-    "Haringey": "5E61227",
-    "Harrow": "5E93956",
-    "Havering": "5E61228",
-    "Hillingdon": "5E93959",
-    "Hounslow": "5E93962",
-    "Islington": "5E93965",
-    "Kensington and Chelsea": "5E61229",
-    "Kingston upon Thames": "5E93968",
-    "Lambeth": "5E93971",
-    "Lewisham": "5E61413",
-    "Merton": "5E61414",
-    "Newham": "5E61231",
-    "Redbridge": "5E61537",
-    "Richmond upon Thames": "5E61415",
-    "Southwark": "5E61518",
-    "Sutton": "5E93974",
-    "Tower Hamlets": "5E61417",
-    "Waltham Forest": "5E61232",
-    "Wandsworth": "5E93977",
-    "Westminster": "5E93980",
+    "Blaenau Gwent": "5E61249",
+    "Bridgend": "5E61250",
+    "Caerphilly": "5E93473",
+    "Cardiff": "5E93482",
+    "Carmarthenshire": "5E61292",
+    "Ceredigion": "5E93470",
+    "Conwy": "5E91980",
+    "Denbighshire": "5E61295",
+    "Flintshire": "5E61300",
+    "Gwynedd": "5E61523",
+    "Isle of Anglesey": "5E61553",
+    "Merthyr Tydfil": "5E93479",
+    "Monmouthshire": "5E61312",
+    "Neath Port Talbot": "5E61453",
+    "Newport": "5E93476",
+    "Pembrokeshire": "5E61318",
+    "Powys": "5E61454",
+    "Rhondda Cynon Taf": "5E61254",
+    "Swansea": "5E92947",
+    "Torfaen": "5E61456",
+    "Vale of Glamorgan": "5E61255",
+    "Wrexham": "5E93467"
 }
 
 
 def main():
-
     # initialise index, this tracks the page number we are on. every additional page adds 24 to the index
 
     # create lists to store our data
@@ -54,10 +41,14 @@ def main():
     all_description = []
     all_address = []
     all_price = []
+    # added dbocq 06/07
+    all_note = []
+    today = date.today().strftime("%m/%d/%Y")
+    yesterday = (date.today() - timedelta(1)).strftime("%m/%d/%Y")
 
     # apparently the maximum page limit for rightmove is 42
-    for borough in list(BOROUGHS.values()):
-
+    # for borough in list(BOROUGHS.values()):
+    for borough in ["5E61523"]:
         # initialise index, this tracks the page number we are on. every additional page adds 24 to the index
         index = 0
 
@@ -95,21 +86,22 @@ def main():
             number_of_listings = int(number_of_listings.replace(",", ""))
 
             for i in range(len(apartments)):
-
                 # tracks which apartment we are on in the page
                 first_var = apartments[i]
 
                 # append link
                 apartment_info = first_var.find("a", class_="propertyCard-link")
+                # print(apartment_info)
                 link = "https://www.rightmove.co.uk" + apartment_info.attrs["href"]
                 all_apartment_links.append(link)
 
-                # append address
+                # append address, including the county for better geocoding later
                 address = (
                     apartment_info.find("address", class_="propertyCard-address")
                     .get_text()
                     .strip()
                 )
+                address = address + ', ' + key[0]
                 all_address.append(address)
 
                 # append description
@@ -128,6 +120,18 @@ def main():
                 )
                 all_price.append(price)
 
+                # append note. interesting field added dboc 06/07
+                note = (
+                    first_var.find("span", class_ ="propertyCard-branchSummary-addedOrReduced")
+                    .get_text()
+                    .strip()
+                )
+
+                note = note.replace("today", str(today))
+                note = note.replace("yesterday", str(yesterday))
+
+                all_note.append(note)
+
             print(f"You have scrapped {pages + 1} pages of apartment listings.")
             print(f"You have {number_of_listings - index} listings left to go")
             print("\n")
@@ -145,6 +149,7 @@ def main():
         "Address": all_address,
         "Description": all_description,
         "Price": all_price,
+        "Notes": all_note,
     }
     df = pd.DataFrame.from_dict(data)
     df.to_csv(r"sales_data.csv", encoding="utf-8", header="true", index=False)
